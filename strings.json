@@ -1,0 +1,26 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "data": {
+          "prompt_context": "[%key:common::config_flow::data::prompt_context%]",
+          "host_url": "[%key:common::config_flow::data::host_url%]"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "[%key:common::config_flow::error::cannot_connect%]",
+      "unknown": "[%key:common::config_flow::error::unknown%]"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "prompt_context": "Prompt Template",
+          "host_url": "H2OGPT Server URL"
+        }
+      }
+    }
+  }
+}

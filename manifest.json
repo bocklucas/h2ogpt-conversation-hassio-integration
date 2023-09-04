@@ -1,0 +1,11 @@
+{
+  "domain": "h2ogpt_conversation",
+  "name": "H2OGPT Conversation",
+  "codeowners": ["@bocklucas"],
+  "config_flow": true,
+  "dependencies": ["conversation"],
+  "documentation": "https://github.com/bocklucas/h2ogpt-conversation-hassio-integration",
+  "integration_type": "service",
+  "iot_class": "cloud_polling",
+  "requirements": ["gradio_client"]
+}
