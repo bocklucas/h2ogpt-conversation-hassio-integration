@@ -6,7 +6,7 @@ import logging
 import types
 from types import MappingProxyType
 from typing import Any
-import requests
+from urllib import request
 
 import voluptuous as vol
 
@@ -39,12 +39,9 @@ DEFAULT_OPTIONS = types.MappingProxyType(
 )
 
 
-def check_connection(host_url: str):
-    response = requests.get(host_url)
-    if response.status_code == 200:
-        return "Connection to API successful!"
-
-    raise requests.exceptions.HTTPError
+async def check_connection(host_url: str):
+    await request.urlopen(host_url, timeout=10)
+    return True
 
 
 async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> None:
@@ -53,9 +50,7 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> None:
     Data has the keys from STEP_USER_DATA_SCHEMA with values provided by the user.
     """
 
-    await hass.async_add_executor_job(
-        partial(check_connection(data[CONF_HOST_URL]), request_timeout=10)
-    )
+    await hass.async_add_executor_job(lambda: check_connection(data[CONF_HOST_URL]))
 
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -76,7 +71,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         try:
             await validate_input(self.hass, user_input)
-        except requests.exceptions.HTTPError:
+        except request.URLError:
             errors["base"] = "cannot_connect"
         except Exception:  # pylint: disable=broad-except
             _LOGGER.exception("Unexpected exception")

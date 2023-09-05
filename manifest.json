@@ -7,5 +7,6 @@
   "documentation": "https://github.com/bocklucas/h2ogpt-conversation-hassio-integration",
   "integration_type": "service",
   "iot_class": "cloud_polling",
-  "requirements": ["gradio_client"]
+  "requirements": ["gradio_client"],
+  "version": "1.0.0"
 }

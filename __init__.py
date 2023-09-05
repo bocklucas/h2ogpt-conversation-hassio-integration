@@ -5,6 +5,8 @@ from functools import partial
 import logging
 from typing import Literal
 
+from urllib import request
+
 import ast
 
 
@@ -23,8 +25,6 @@ from homeassistant.helpers import config_validation as cv, intent, selector, tem
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.util import ulid
 
-
-import requests
 
 from .const import (
     CONF_PROMPT_CONTEXT,
@@ -46,12 +46,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up H2OGPT Conversation from a config entry."""
     try:
         await hass.async_add_executor_job(
-            partial(
-                check_connection(entry.data[CONF_HOST_URL]),
-                request_timeout=10,
-            )
+            lambda: check_connection(entry.data[CONF_HOST_URL]),
         )
-    except requests.exceptions.HTTPError as err:
+    except request.URLError as err:
         _LOGGER.error("Unable to connect: %s", err)
         return False
     except Exception as err:
@@ -104,7 +101,6 @@ class H2OGPTAgent(conversation.AbstractConversationAgent):
         self.hass = hass
         self.entry = entry
         self.history: dict[str, list[dict]] = {}
-        self.client = GradioClient(entry.data[CONF_HOST_URL])
 
     @property
     def supported_languages(self) -> list[str] | Literal["*"]:
@@ -115,6 +111,11 @@ class H2OGPTAgent(conversation.AbstractConversationAgent):
         self, user_input: conversation.ConversationInput
     ) -> conversation.ConversationResult:
         """Process a sentence."""
+        _LOGGER.debug("Creating H2OGPT Client...")
+        client = await self.hass.async_add_executor_job(
+            lambda: GradioClient(self.entry.data[CONF_HOST_URL]),
+        )
+        _LOGGER.debug("Client Created!")
         raw_prompt_context = self.entry.options.get(
             CONF_PROMPT_CONTEXT, DEFAULT_PROMPT_CONTEXT
         )
@@ -124,18 +125,6 @@ class H2OGPTAgent(conversation.AbstractConversationAgent):
             messages = self.history[conversation_id]
         else:
             conversation_id = ulid.ulid()
-            # try:
-            #     prompt = self._async_generate_prompt(raw_prompt_context)
-            # except TemplateError as err:
-            #     _LOGGER.error("Error rendering prompt: %s", err)
-            #     intent_response = intent.IntentResponse(language=user_input.language)
-            #     intent_response.async_set_error(
-            #         intent.IntentResponseErrorCode.UNKNOWN,
-            #         f"Sorry, I had a problem with my template: {err}",
-            #     )
-            #     return conversation.ConversationResult(
-            #         response=intent_response, conversation_id=conversation_id
-            #     )
             messages = [{"role": "system", "content": raw_prompt_context}]
 
         messages.append({"role": "user", "content": user_input.text})
@@ -143,9 +132,12 @@ class H2OGPTAgent(conversation.AbstractConversationAgent):
         _LOGGER.debug("Prompt for h2ogpt: %s", messages)
 
         try:
-            result = answer_question_using_context(
-                self.client, user_input.text, raw_prompt_context
+            result = await self.hass.async_add_executor_job(
+                lambda: answer_question_using_context(
+                    client, user_input.text, raw_prompt_context
+                ),
             )
+
         except Exception as err:
             intent_response = intent.IntentResponse(language=user_input.language)
             intent_response.async_set_error(
@@ -162,7 +154,7 @@ class H2OGPTAgent(conversation.AbstractConversationAgent):
         self.history[conversation_id] = messages
 
         intent_response = intent.IntentResponse(language=user_input.language)
-        intent_response.async_set_speech(response["content"])
+        intent_response.async_set_speech(response)
         return conversation.ConversationResult(
             response=intent_response, conversation_id=conversation_id
         )
